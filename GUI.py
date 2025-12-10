@@ -1,12 +1,24 @@
 import customtkinter as ctk
+import pickle
+import numpy as np
 
 # Set theme and appearance
-ctk.set_appearance_mode("light")          # "light" or "dark"
+ctk.set_appearance_mode("dark")          # "light" or "dark"
 ctk.set_default_color_theme("dark-blue")      # "green", "dark-blue"
+
+# Load the trained model
+try:
+    with open('lasso_model.pkl', 'rb') as file:
+        model_data = pickle.load(file)
+    model_loaded = True
+    print("Model loaded successfully!")
+except Exception as e:
+    model_loaded = False
+    print(f"Error loading model: {e}")
 
 app = ctk.CTk()
 app.title("New Zealand Crime Rate Prediction")
-app.geometry("600x750")
+app.geometry("600x800")
 
 label = ctk.CTkLabel(
     app,
@@ -20,16 +32,16 @@ label.pack(pady=(15, 10), padx=20, anchor="w")
 # --- Toggle Function ---
 def toggle_mode():
     if mode_switch.get() == 1:       # If switch is ON
-        ctk.set_appearance_mode("dark")
-    else:                             # If switch is OFF
         ctk.set_appearance_mode("light")
+    else:                             # If switch is OFF
+        ctk.set_appearance_mode("dark")
 
 # --- Toggle Switch ---
 mode_switch = ctk.CTkSwitch(
     app,
-    text="Dark Mode",
-    font=("Arial", 15),
-    command=toggle_mode
+    text="Light Mode",
+    font=("Arial", 14),
+    command=toggle_mode,
 )
 mode_switch.place(relx=0.98, rely=0.02, anchor="ne")
 
@@ -50,16 +62,25 @@ year_frame.pack(padx=20, pady=(5, 5), fill="x")
 
 year_label = ctk.CTkLabel(
     year_frame,
-    text="Which Year Do You Want To Predict?",
+    text="Select Year or Enter Population:",
     font=("Arial", 13)
 )
 year_label.pack(pady=8)
 
 # Dropdown for year/option selection
 def option_changed(choice):
-    output_box.delete("1.0", "end")
-    output_box.insert("end", f"You selected: {choice}\n")
-    output_box.insert("end", "Processing prediction...\n")
+    # Auto-populate estimated population based on year
+    year_to_pop = {
+        "2025": "5310000",
+        "2026": "5370000",
+        "2027": "5430000",
+        "2028": "5490000",
+        "2029": "5550000",
+        "2030": "5610000"
+    }
+    if choice in year_to_pop:
+        population_entry.delete(0, "end")
+        population_entry.insert(0, year_to_pop[choice])
 
 dropdown = ctk.CTkOptionMenu(
     year_frame,
@@ -69,14 +90,62 @@ dropdown = ctk.CTkOptionMenu(
 )
 dropdown.pack(pady=8)
 
+# Population input
+population_label = ctk.CTkLabel(
+    year_frame,
+    text="Population (for prediction):",
+    font=("Arial", 12)
+)
+population_label.pack(pady=(8, 2))
+
+population_entry = ctk.CTkEntry(
+    year_frame,
+    width=200,
+    placeholder_text="e.g., 5310000"
+)
+population_entry.pack(pady=5)
+population_entry.insert(0, "5310000")  # Default value
+
 # Predict Button
 def predict_crime():
     selected_year = dropdown.get()
+    population_str = population_entry.get().strip()
+    
     output_box.delete("1.0", "end")
-    output_box.insert("end", f"Predicting crime rates for {selected_year}...\n")
-    output_box.insert("end", "="*40 + "\n")
-    output_box.insert("end", "Prediction results will appear here.\n")
-    output_box.insert("end", "="*40 + "\n")
+    
+    if not model_loaded:
+        output_box.insert("end", "ERROR: Model not loaded!\n")
+        output_box.insert("end", "Please ensure 'lasso_model.pkl' exists.\n")
+        return
+    
+    if not population_str:
+        output_box.insert("end", "ERROR: Please enter a population value!\n")
+        return
+    
+    try:
+        # Convert population to numeric
+        population = float(population_str)
+        
+        # Prepare input as 2D array (population as single feature)
+        input_feature = np.array([[population]])
+        
+        # Make prediction
+        prediction = model_data.predict(input_feature)[0]
+        
+        # Display results
+        output_box.insert("end", f"Year: {selected_year}\n")
+        output_box.insert("end", f"Population: {population:,.0f}\n")
+        output_box.insert("end", "="*40 + "\n")
+        output_box.insert("end", f"Predicted Total Crimes: {prediction:,.0f}\n")
+        output_box.insert("end", "="*40 + "\n")
+        output_box.insert("end", "\n✓ Prediction based on Lasso Regression model\n")
+        output_box.insert("end", f"Crime rate per 1000: {(prediction/population*1000):.2f}\n")
+        
+    except ValueError:
+        output_box.insert("end", "ERROR: Please enter a valid number for population!\n")
+    except Exception as e:
+        output_box.insert("end", f"ERROR during prediction: {str(e)}\n")
+        output_box.insert("end", "Please check your input data.\n")
 
 predict_button = ctk.CTkButton(
     app,
@@ -115,5 +184,22 @@ clear_button = ctk.CTkButton(
     width=150
 )
 clear_button.pack(pady=(0, 10))
+
+# Exit button function
+def exit_app():
+    app.quit()
+    app.destroy()
+
+# Red exit button in bottom right corner
+exit_button = ctk.CTkButton(
+    app,
+    text="Exit",
+    command=exit_app,
+    width=80,
+    fg_color="red",
+    hover_color="darkred",
+    font=("Arial", 12, "bold")
+)
+exit_button.place(relx=0.98, rely=0.99, anchor="se")
 
 app.mainloop()
