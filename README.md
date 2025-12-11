@@ -34,17 +34,7 @@ Crime prediction models aim to analyze historical crime data to forecast potenti
    python main.py
    ```
    or explore the Jupyter notebooks for step-by-step workflow.
-
-## Project Structure
-
-```
-.
-├── data/               # Crime data files
-├── notebooks/          # Jupyter notebooks
-├── src/                # Source code
-├── main.py             # Main script
-└── README.md           # Project README
-```
+   
 
 ## Contributing
 
