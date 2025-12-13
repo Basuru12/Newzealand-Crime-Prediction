@@ -1,20 +1,9 @@
 import customtkinter as ctk
-import pickle
-import numpy as np
+import connection
 
 # Set theme and appearance
 ctk.set_appearance_mode("dark")          # "light" or "dark"
 ctk.set_default_color_theme("dark-blue")      # "green", "dark-blue"
-
-# Load the trained model
-try:
-    with open('lasso_model.pkl', 'rb') as file:
-        model_data = pickle.load(file)
-    model_loaded = True
-    print("Model loaded successfully!")
-except Exception as e:
-    model_loaded = False
-    print(f"Error loading model: {e}")
 
 app = ctk.CTk()
 app.title("New Zealand Crime Rate Prediction")
@@ -113,9 +102,9 @@ def predict_crime():
     
     output_box.delete("1.0", "end")
     
-    if not model_loaded:
+    if not connection.is_model_loaded():
         output_box.insert("end", "ERROR: Model not loaded!\n")
-        output_box.insert("end", "Please ensure 'lasso_model.pkl' exists.\n")
+        output_box.insert("end", "Please ensure 'lasso_alpha0.001_iter1000.joblib' exists.\n")
         return
     
     if not population_str:
@@ -126,11 +115,8 @@ def predict_crime():
         # Convert population to numeric
         population = float(population_str)
         
-        # Prepare input as 2D array (population as single feature)
-        input_feature = np.array([[population]])
-        
-        # Make prediction
-        prediction = model_data.predict(input_feature)[0]
+        # Make prediction using connection module
+        prediction = connection.predict_crime_rate(population)
         
         # Display results
         output_box.insert("end", f"Year: {selected_year}\n")
