@@ -114,9 +114,10 @@ def predict_crime():
     try:
         # Convert population to numeric
         population = float(population_str)
+        year = int(selected_year)
         
         # Make prediction using connection module
-        prediction = connection.predict_crime_rate(population)
+        prediction = connection.predict_crime_rate(population, year)
         
         # Display results
         output_box.insert("end", f"Year: {selected_year}\n")
