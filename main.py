@@ -122,10 +122,10 @@ def predict_crime():
         output_box.insert("end", f"Year: {selected_year}\n")
         output_box.insert("end", f"Population: {population:,.0f}\n")
         output_box.insert("end", "="*40 + "\n")
-        output_box.insert("end", f"Predicted Total Crimes: {prediction:,.0f}\n")
+        output_box.insert("end", f"Predicted Homicides: {prediction:,.0f}\n")
         output_box.insert("end", "="*40 + "\n")
         output_box.insert("end", "\n✓ Prediction based on Lasso Regression model\n")
-        output_box.insert("end", f"Crime rate per 1000: {(prediction/population*1000):.2f}\n")
+        output_box.insert("end", f"Homicide rate per 100k: {(prediction/population*100000):.2f}\n")
         
     except ValueError:
         output_box.insert("end", "ERROR: Please enter a valid number for population!\n")
