@@ -61,11 +61,7 @@ def option_changed(choice):
     # Auto-populate estimated population based on year
     year_to_pop = {
         "2025": "5310000",
-        "2026": "5370000",
-        "2027": "5430000",
-        "2028": "5490000",
-        "2029": "5550000",
-        "2030": "5610000"
+        "2026": "5370000"
     }
     if choice in year_to_pop:
         population_entry.delete(0, "end")
@@ -73,7 +69,7 @@ def option_changed(choice):
 
 dropdown = ctk.CTkOptionMenu(
     year_frame,
-    values=["2025", "2026", "2027", "2028", "2029", "2030"],
+    values=["2025", "2026"],
     command=option_changed,
     width=200
 )
@@ -95,6 +91,12 @@ population_entry = ctk.CTkEntry(
 population_entry.pack(pady=5)
 population_entry.insert(0, "5310000")  # Default value
 
+
+
+#---------------------------------------------------------------------------------------------------
+
+
+
 # Predict Button
 def predict_crime():
     selected_year = dropdown.get()
@@ -104,7 +106,7 @@ def predict_crime():
     
     if not connection.is_model_loaded():
         output_box.insert("end", "ERROR: Model not loaded!\n")
-        output_box.insert("end", "Please ensure 'lasso_alpha0.001_iter1000.joblib' exists.\n")
+        output_box.insert("end", "Please ensure 'Lasso_last.joblib' exists.\n")
         return
     
     if not population_str:
@@ -117,16 +119,16 @@ def predict_crime():
         year = int(selected_year)
         
         # Make prediction using connection module
-        prediction = connection.predict_crime_rate(population, year)
+        prediction = connection.predict_crime_rate(year, population)
         
         # Display results
         output_box.insert("end", f"Year: {selected_year}\n")
         output_box.insert("end", f"Population: {population:,.0f}\n")
         output_box.insert("end", "="*40 + "\n")
-        output_box.insert("end", f"Predicted Homicides: {prediction:,.0f}\n")
+        output_box.insert("end", f"Predicted Total: {prediction:,.0f}\n")
         output_box.insert("end", "="*40 + "\n")
-        output_box.insert("end", "\n✓ Prediction based on Lasso Regression model\n")
-        output_box.insert("end", f"Homicide rate per 100k: {(prediction/population*100000):.2f}\n")
+        output_box.insert("end", "\n✓ Prediction based on Randomforest model\n")
+        output_box.insert("end", f"Total rate (%): {(prediction/population*100):.2f}\n")
         
     except ValueError:
         output_box.insert("end", "ERROR: Please enter a valid number for population!\n")
@@ -158,6 +160,12 @@ output_label.pack(pady=(8, 5))
 # Create a textbox (the output box)
 output_box = ctk.CTkTextbox(output_frame, width=500, height=150)
 output_box.pack(padx=10, pady=(0, 8), fill="both", expand=True)
+
+
+
+#--------------------------------------------------------------------------------------
+
+
 
 # Function to clear output
 def clear_output():
