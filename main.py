@@ -51,7 +51,7 @@ year_frame.pack(padx=20, pady=(5, 5), fill="x")
 
 year_label = ctk.CTkLabel(
     year_frame,
-    text="Select Year or Enter Population:",
+    text="Select Year to Predict Total Crime Values:",
     font=("Arial", 13)
 )
 year_label.pack(pady=8)
@@ -61,24 +61,31 @@ def option_changed(choice):
     # Auto-populate estimated population based on year
     year_to_pop = {
         "2025": "5310000",
-        "2026": "5370000"
+        "2026": "5370000",
+        "2027": "5430000",
+        "2028": "5490000",
+        "2029": "5550000",
+        "2030": "5610000"
     }
     if choice in year_to_pop:
         population_entry.delete(0, "end")
         population_entry.insert(0, year_to_pop[choice])
 
+# Generate year options (2025-2030)
+year_options = [str(year) for year in range(2025, 2031)]
+
 dropdown = ctk.CTkOptionMenu(
     year_frame,
-    values=["2025", "2026"],
+    values=year_options,
     command=option_changed,
     width=200
 )
 dropdown.pack(pady=8)
 
-# Population input
+# Population input (optional, for display purposes)
 population_label = ctk.CTkLabel(
     year_frame,
-    text="Population (for prediction):",
+    text="Population (optional, for rate calculation):",
     font=("Arial", 12)
 )
 population_label.pack(pady=(8, 2))
@@ -104,41 +111,56 @@ def predict_crime():
     
     output_box.delete("1.0", "end")
     
-    if not connection.is_model_loaded():
-        output_box.insert("end", "ERROR: Model not loaded!\n")
-        output_box.insert("end", "Please ensure 'Lasso_last.joblib' exists.\n")
-        return
-    
-    if not population_str:
-        output_box.insert("end", "ERROR: Please enter a population value!\n")
-        return
-    
     try:
-        # Convert population to numeric
-        population = float(population_str)
         year = int(selected_year)
         
-        # Make prediction using connection module
-        prediction = connection.predict_crime_rate(year, population)
+        # Use recursive prediction model
+        if not connection.is_recursive_models_loaded():
+            output_box.insert("end", "Loading recursive models...\n")
+            if not connection.load_recursive_models():
+                output_box.insert("end", "ERROR: Recursive models not loaded!\n")
+                output_box.insert("end", "Please ensure 'population.joblib' and 'total.joblib' exist.\n")
+                return
+        
+        # Get last known year
+        try:
+            X_last, last_year = connection.get_last_known_data()
+            output_box.insert("end", f"Last known year: {last_year}\n")
+            output_box.insert("end", f"Predicting for year: {year}\n")
+            output_box.insert("end", "-"*40 + "\n")
+        except Exception as e:
+            output_box.insert("end", f"Warning: Could not load last known data: {str(e)}\n")
+            last_year = 2024  # Default fallback
+        
+        # Make prediction using recursive model
+        prediction = connection.predict_total_for_year_recursive(year)
         
         # Display results
-        output_box.insert("end", f"Year: {selected_year}\n")
-        output_box.insert("end", f"Population: {population:,.0f}\n")
+        output_box.insert("end", f"\nYear: {year}\n")
         output_box.insert("end", "="*40 + "\n")
         output_box.insert("end", f"Predicted Total: {prediction:,.0f}\n")
         output_box.insert("end", "="*40 + "\n")
-        output_box.insert("end", "\n✓ Prediction based on Randomforest model\n")
-        output_box.insert("end", f"Total rate (%): {(prediction/population*100):.2f}\n")
+        output_box.insert("end", "\n✓ Prediction using recursive model\n")
+        output_box.insert("end", "(population.joblib + total.joblib)\n")
+        
+        # If population was provided, show rate
+        if population_str:
+            try:
+                population = float(population_str)
+                output_box.insert("end", f"\nPopulation: {population:,.0f}\n")
+                output_box.insert("end", f"Total rate (%): {(prediction/population*100):.2f}\n")
+            except ValueError:
+                pass
         
     except ValueError:
-        output_box.insert("end", "ERROR: Please enter a valid number for population!\n")
+        output_box.insert("end", "ERROR: Please enter a valid year!\n")
     except Exception as e:
         output_box.insert("end", f"ERROR during prediction: {str(e)}\n")
         output_box.insert("end", "Please check your input data.\n")
 
 predict_button = ctk.CTkButton(
     app,
-    text="Predict Crime Rate",
+    text="Predict Total (Recursive Model)",
     command=predict_crime,
     width=200,
     height=35,
