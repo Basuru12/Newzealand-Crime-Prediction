@@ -113,7 +113,7 @@ def predict_crime():
     
     try:
         year = int(selected_year)
-        
+
         # Use recursive prediction model
         if not connection.is_recursive_models_loaded():
             output_box.insert("end", "Loading recursive models...\n")
@@ -125,16 +125,19 @@ def predict_crime():
         # Get last known year
         try:
             X_last, last_year = connection.get_last_known_data()
+            print(X_last,last_year)  # X last and last year are the same throughout check last lnown data
             output_box.insert("end", f"Last known year: {last_year}\n")
             output_box.insert("end", f"Predicting for year: {year}\n")
             output_box.insert("end", "-"*40 + "\n")
         except Exception as e:
+
             output_box.insert("end", f"Warning: Could not load last known data: {str(e)}\n")
             last_year = 2024  # Default fallback
         
         # Make prediction using recursive model
-        prediction = connection.predict_total_for_year_recursive(year)
         
+        prediction = connection.predict_total_for_year_recursive(year)
+  
         # Display results
         output_box.insert("end", f"\nYear: {year}\n")
         output_box.insert("end", "="*40 + "\n")

@@ -111,27 +111,32 @@ def recursive_forecast_with_exogenous(
 
     for step in range(1, horizon + 1):
         # Predict Population_lagged
-        pop_pred = population_model.predict(X_current)[0]
+        pop_pred_array = population_model.predict(X_current)
+        pop_pred = float(pop_pred_array[0]) if isinstance(pop_pred_array, np.ndarray) else float(pop_pred_array)
         
         # Update population feature
-        X_current[population_feature_name] = pop_pred
+        X_current.loc[X_current.index[0], population_feature_name] = pop_pred
 
         # Predict total
-        total_pred = total_model.predict(X_current)[0]
+        
+        total_pred = total_model.predict(X_current)
+        print(total_pred)
+        #total_pred = float(total_pred_array[0]) if isinstance(total_pred_array, np.ndarray) else float(total_pred_array)
 
         # Store predictions
         current_year = int(X_current["Year"].iloc[0])
+        forecasted_year = current_year + 1
         forecasts.append({
-            "Year": current_year,
+            "Year": forecasted_year,
             "step": step,
             "Population_lagged_pred": pop_pred,
             "total_pred": total_pred
         })
 
         # Update features for next iteration
-        X_current[population_feature_name] = pop_pred
-        X_current["Total_Lagged"] = total_pred
-        X_current["Year"] = current_year + 1
+        X_current.loc[X_current.index[0], population_feature_name] = pop_pred
+        X_current.loc[X_current.index[0], "Total_Lagged"] = total_pred
+        X_current.loc[X_current.index[0], "Year"] = current_year + 1
 
     return pd.DataFrame(forecasts)
 
@@ -170,8 +175,15 @@ def predict_total_for_year_recursive(target_year: int, data_file="New_csv.csv"):
     )
     
     # Get the prediction for the target year
-    target_prediction = forecasts[forecasts["Year"] == target_year]["total_pred"].iloc[0]
+    target_row = forecasts[forecasts["Year"] == target_year]
+    if target_row.empty:
+        raise Exception(f"No prediction found for year {target_year}")
     
+    target_prediction = target_row["total_pred"].iloc[0]
+    
+    # Ensure we return a scalar float value
+    if isinstance(target_prediction, np.ndarray):
+        return float(target_prediction.item())
     return float(target_prediction)
 
 # Auto-load models when module is imported
