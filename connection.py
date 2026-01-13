@@ -1,159 +1,73 @@
 import joblib
 import numpy as np
 import pandas as pd
+import os
 
-# Load the trained model
-model_data = None
-model_loaded = False
-feature_columns = None
-
-# Recursive model variables
+# Model variables
 population_model = None
-total_model = None
-recursive_models_loaded = False
+model_loaded = False
 
-def load_model():
-    """Load the Lasso regression model from joblib file"""
-    global model_data, model_loaded, feature_columns
+def load_population_model():
+    """Load the population prediction model from joblib file"""
+    global population_model, model_loaded
     try:
-        model_data = joblib.load('RandomForest_last.joblib')
+        model_path = "Models/population.joblib"
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
         
-        feature_columns = ["Year","Population"]
-        
+        population_model = joblib.load(model_path)
         model_loaded = True
-        print(f"Model loaded successfully from RandomForest_last.joblib!")
-        print(f"Model expects {len(feature_columns)} features: {feature_columns}")
+        print(f"Population model loaded successfully from {model_path}!")
         return True
     except Exception as e:
         model_loaded = False
-        print(f"Error loading model: {e}")
+        print(f"Error loading population model: {e}")
         return False
 
 def is_model_loaded():
     """Check if model is loaded"""
     return model_loaded
 
-def predict_crime_rate(year=None, population=0):
-    """Make crime prediction based on population
-    
-    Args:
-        year (int, optional): Year for prediction
-        population (float): Population value for prediction
-        
-    Returns:
-        float: Predicted total crimes based on year and population
-    """
-    if not model_loaded:
-        raise Exception("Model not loaded. Call load_model() first.")
-    
-    try:
-        prediction = model_data.predict([[year, population]])
-        
-        # Return single value instead of array
-        return prediction[0]
-    except Exception as e:
-        raise Exception(f"Prediction error: {str(e)}")
-
-
-# ========== Recursive Model Functions ==========
-
-def load_recursive_models():
-    """Load both population and total models for recursive forecasting"""
-    global population_model, total_model, recursive_models_loaded
-    try:
-        population_model = joblib.load("population.joblib")
-        total_model = joblib.load("total.joblib")
-        recursive_models_loaded = True
-        return True
-    except FileNotFoundError as e:
-        recursive_models_loaded = False
-        print(f"Error: Model file not found - {e}")
-        return False
-    except Exception as e:
-        recursive_models_loaded = False
-        print(f"Error loading recursive models: {e}")
-        return False
-
-def is_recursive_models_loaded():
-    """Check if recursive models are loaded"""
-    return recursive_models_loaded
-
-def get_last_known_data(data_file="New_csv.csv"):
+def get_last_known_data(data_file="data/New_csv.csv"):
     """Get the last known data point from the dataset"""
     try:
+        if not os.path.exists(data_file):
+            raise FileNotFoundError(f"Data file not found: {data_file}")
+        
         df = pd.read_csv(data_file)
         df = df.sort_values("Year").reset_index(drop=True)
         
         # Extract features needed for prediction
         feature_cols = ["Total_Lagged", "Year", "Population_lagged"]
+        
+        # Check if all required columns exist
+        missing_cols = [col for col in feature_cols if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+        
         X_last = df[feature_cols].iloc[-1:].copy()
         last_year = int(df.iloc[-1]["Year"])
         
         return X_last, last_year
-    except FileNotFoundError:
-        raise Exception(f"Dataset file '{data_file}' not found!")
+    except FileNotFoundError as e:
+        raise Exception(f"Dataset file not found: {e}")
     except Exception as e:
         raise Exception(f"Error loading data: {e}")
 
-def recursive_forecast_with_exogenous(
-    X_last: pd.DataFrame,
-    population_model,
-    total_model,
-    population_feature_name: str,
-    horizon: int = 3
-):
+def predict_population_for_year(target_year: int, data_file="data/New_csv.csv"):
     """
-    Recursive forecast where Population_lagged is predicted first
-    and then used to predict total.
-    """
-    X_current = X_last.copy()
-    forecasts = []
-
-    for step in range(1, horizon + 1):
-        # Predict Population_lagged
-        pop_pred_array = population_model.predict(X_current)
-        pop_pred = float(pop_pred_array[0]) if isinstance(pop_pred_array, np.ndarray) else float(pop_pred_array)
-        
-        # Update population feature
-        X_current.loc[X_current.index[0], population_feature_name] = pop_pred
-
-        # Predict total
-        
-        total_pred = total_model.predict(X_current)
-        print(total_pred)
-        #total_pred = float(total_pred_array[0]) if isinstance(total_pred_array, np.ndarray) else float(total_pred_array)
-
-        # Store predictions
-        current_year = int(X_current["Year"].iloc[0])
-        forecasted_year = current_year + 1
-        forecasts.append({
-            "Year": forecasted_year,
-            "step": step,
-            "Population_lagged_pred": pop_pred,
-            "total_pred": total_pred
-        })
-
-        # Update features for next iteration
-        X_current.loc[X_current.index[0], population_feature_name] = pop_pred
-        X_current.loc[X_current.index[0], "Total_Lagged"] = total_pred
-        X_current.loc[X_current.index[0], "Year"] = current_year + 1
-
-    return pd.DataFrame(forecasts)
-
-def predict_total_for_year_recursive(target_year: int, data_file="New_csv.csv"):
-    """
-    Predict total crime value for a specific year using recursive forecasting.
+    Predict population for a specific year using the population model.
     
     Args:
-        target_year (int): The year to predict total values for
+        target_year (int): The year to predict population for (e.g., 2025)
         data_file (str): Path to the dataset file containing lagged features
         
     Returns:
-        float: Predicted total value for the target year
+        float: Predicted population value for the target year
     """
-    if not recursive_models_loaded:
-        if not load_recursive_models():
-            raise Exception("Failed to load recursive models. Ensure population.joblib and total.joblib exist.")
+    if not model_loaded:
+        if not load_population_model():
+            raise Exception("Failed to load population model. Ensure Models/population.joblib exists.")
     
     # Get last known data
     X_last, last_year = get_last_known_data(data_file)
@@ -165,27 +79,24 @@ def predict_total_for_year_recursive(target_year: int, data_file="New_csv.csv"):
     # Calculate forecast horizon
     horizon = target_year - last_year
     
-    # Perform recursive forecast
-    forecasts = recursive_forecast_with_exogenous(
-        X_last=X_last,
-        population_model=population_model,
-        total_model=total_model,
-        population_feature_name="Population_lagged",
-        horizon=horizon
-    )
+    # Prepare input data for prediction
+    # Ensure columns are in the correct order: Total_Lagged, Year, Population_lagged
+    X_current = X_last[["Total_Lagged", "Year", "Population_lagged"]].copy()
+    print(X_current)
+    # Update the year to target year
+    X_current.loc[X_current.index[0], "Year"] = target_year
     
-    # Get the prediction for the target year
-    target_row = forecasts[forecasts["Year"] == target_year]
-    if target_row.empty:
-        raise Exception(f"No prediction found for year {target_year}")
-    
-    target_prediction = target_row["total_pred"].iloc[0]
-    
-    # Ensure we return a scalar float value
-    if isinstance(target_prediction, np.ndarray):
-        return float(target_prediction.item())
-    return float(target_prediction)
+    # Make prediction
+    try:
+        prediction = population_model.predict(X_current)
+        
+        # Extract scalar value from array
+        if isinstance(prediction, np.ndarray):
+            return float(prediction[0])
+        return float(prediction)
+    except Exception as e:
+        raise Exception(f"Prediction error: {str(e)}")
 
-# Auto-load models when module is imported
-load_model()
-load_recursive_models()
+# Auto-load model when module is imported
+load_population_model()
+

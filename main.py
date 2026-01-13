@@ -2,27 +2,37 @@ import customtkinter as ctk
 import connection
 
 # Set theme and appearance
-ctk.set_appearance_mode("dark")          # "light" or "dark"
-ctk.set_default_color_theme("dark-blue")      # "green", "dark-blue"
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("dark-blue")
 
 app = ctk.CTk()
-app.title("New Zealand Crime Rate Prediction")
-app.geometry("600x800")
+app.title("New Zealand Population Prediction")
+app.geometry("600x700")
 
-label = ctk.CTkLabel(
+# Title Label
+title_label = ctk.CTkLabel(
     app,
-    text="This is a Project to predict the future Crime rates in New Zealand",
-    font=("Arial", 12),
-    wraplength=450,  # Wrap text at 450 pixels
-    justify="left"   # Align text to the left
+    text="New Zealand Population Prediction",
+    font=("Arial", 18, "bold"),
+    wraplength=500
 )
-label.pack(pady=(15, 10), padx=20, anchor="w")
+title_label.pack(pady=(20, 10))
+
+# Description Label
+desc_label = ctk.CTkLabel(
+    app,
+    text="Predict population for year 2025 using population.joblib model",
+    font=("Arial", 12),
+    wraplength=500,
+    justify="center"
+)
+desc_label.pack(pady=(0, 20))
 
 # --- Toggle Function ---
 def toggle_mode():
-    if mode_switch.get() == 1:       # If switch is ON
+    if mode_switch.get() == 1:
         ctk.set_appearance_mode("light")
-    else:                             # If switch is OFF
+    else:
         ctk.set_appearance_mode("dark")
 
 # --- Toggle Switch ---
@@ -36,161 +46,127 @@ mode_switch.place(relx=0.98, rely=0.02, anchor="ne")
 
 # Prediction Frame
 prediction_frame = ctk.CTkFrame(app)
-prediction_frame.pack(padx=20, pady=(5, 5), fill="x")
+prediction_frame.pack(padx=20, pady=(10, 10), fill="x")
 
 prediction_title = ctk.CTkLabel(
     prediction_frame,
-    text="Let's Predict The Future",
-    font=("Arial", 18, "bold")
+    text="Population Prediction for 2025",
+    font=("Arial", 16, "bold")
 )
-prediction_title.pack(pady=8)
+prediction_title.pack(pady=15)
 
-# Year Selection Frame
-year_frame = ctk.CTkFrame(app)
-year_frame.pack(padx=20, pady=(5, 5), fill="x")
+# Info Frame
+info_frame = ctk.CTkFrame(app)
+info_frame.pack(padx=20, pady=(5, 10), fill="x")
 
-year_label = ctk.CTkLabel(
-    year_frame,
-    text="Select Year to Predict Total Crime Values:",
-    font=("Arial", 13)
+info_label = ctk.CTkLabel(
+    info_frame,
+    text="Model Information:",
+    font=("Arial", 13, "bold")
 )
-year_label.pack(pady=8)
+info_label.pack(pady=(10, 5))
 
-# Dropdown for year/option selection
-def option_changed(choice):
-    # Auto-populate estimated population based on year
-    year_to_pop = {
-        "2025": "5310000",
-        "2026": "5370000",
-        "2027": "5430000",
-        "2028": "5490000",
-        "2029": "5550000",
-        "2030": "5610000"
-    }
-    if choice in year_to_pop:
-        population_entry.delete(0, "end")
-        population_entry.insert(0, year_to_pop[choice])
-
-# Generate year options (2025-2030)
-year_options = [str(year) for year in range(2025, 2031)]
-
-dropdown = ctk.CTkOptionMenu(
-    year_frame,
-    values=year_options,
-    command=option_changed,
-    width=200
+model_info = ctk.CTkLabel(
+    info_frame,
+    text="• Model: population.joblib (Lasso Regression)\n• Features: Total_Lagged, Year, Population_lagged\n• Data Source: data/New_csv.csv",
+    font=("Arial", 11),
+    justify="left"
 )
-dropdown.pack(pady=8)
+model_info.pack(pady=(0, 10))
 
-# Population input (optional, for display purposes)
-population_label = ctk.CTkLabel(
-    year_frame,
-    text="Population (optional, for rate calculation):",
-    font=("Arial", 12)
-)
-population_label.pack(pady=(8, 2))
-
-population_entry = ctk.CTkEntry(
-    year_frame,
-    width=200,
-    placeholder_text="e.g., 5310000"
-)
-population_entry.pack(pady=5)
-population_entry.insert(0, "5310000")  # Default value
-
-
-
-#---------------------------------------------------------------------------------------------------
-
-
-
-# Predict Button
-def predict_crime():
-    selected_year = dropdown.get()
-    population_str = population_entry.get().strip()
-    
+# Predict Button Function
+def predict_population():
     output_box.delete("1.0", "end")
     
     try:
-        year = int(selected_year)
-
-        # Use recursive prediction model
-        if not connection.is_recursive_models_loaded():
-            output_box.insert("end", "Loading recursive models...\n")
-            if not connection.load_recursive_models():
-                output_box.insert("end", "ERROR: Recursive models not loaded!\n")
-                output_box.insert("end", "Please ensure 'population.joblib' and 'total.joblib' exist.\n")
+        # Check if model is loaded
+        if not connection.is_model_loaded():
+            output_box.insert("end", "Loading population model...\n")
+            if not connection.load_population_model():
+                output_box.insert("end", "ERROR: Model not loaded!\n")
+                output_box.insert("end", "Please ensure 'Models/population.joblib' exists.\n")
                 return
         
-        # Get last known year
+        # Get last known data
         try:
             X_last, last_year = connection.get_last_known_data()
-            print(X_last,last_year)  # X last and last year are the same throughout check last lnown data
             output_box.insert("end", f"Last known year: {last_year}\n")
-            output_box.insert("end", f"Predicting for year: {year}\n")
-            output_box.insert("end", "-"*40 + "\n")
+            output_box.insert("end", f"Target year: 2025\n")
+            output_box.insert("end", "-"*50 + "\n\n")
+            
+            # Display input features
+            output_box.insert("end", "Input Features (from last known data):\n")
+            output_box.insert("end", f"  • Total_Lagged: {X_last['Total_Lagged'].iloc[0]:,.0f}\n")
+            output_box.insert("end", f"  • Year: {int(X_last['Year'].iloc[0])}\n")
+            output_box.insert("end", f"  • Population_lagged: {X_last['Population_lagged'].iloc[0]:,.0f}\n")
+            output_box.insert("end", "\n" + "-"*50 + "\n\n")
         except Exception as e:
-
-            output_box.insert("end", f"Warning: Could not load last known data: {str(e)}\n")
-            last_year = 2024  # Default fallback
+            output_box.insert("end", f"Warning: Could not load data: {str(e)}\n")
+            output_box.insert("end", "Attempting prediction anyway...\n\n")
         
-        # Make prediction using recursive model
+        # Make prediction
+        output_box.insert("end", "Making prediction...\n")
+        prediction = connection.predict_population_for_year(2025)
         
-        prediction = connection.predict_total_for_year_recursive(year)
-  
         # Display results
-        output_box.insert("end", f"\nYear: {year}\n")
-        output_box.insert("end", "="*40 + "\n")
-        output_box.insert("end", f"Predicted Total: {prediction:,.0f}\n")
-        output_box.insert("end", "="*40 + "\n")
-        output_box.insert("end", "\n✓ Prediction using recursive model\n")
-        output_box.insert("end", "(population.joblib + total.joblib)\n")
+        output_box.insert("end", "\n" + "="*50 + "\n")
+        output_box.insert("end", "PREDICTION RESULT\n")
+        output_box.insert("end", "="*50 + "\n")
+        output_box.insert("end", f"\nYear: 2025\n")
+        output_box.insert("end", f"Predicted Population: {prediction:,.0f}\n")
+        output_box.insert("end", "="*50 + "\n")
         
-        # If population was provided, show rate
-        if population_str:
-            try:
-                population = float(population_str)
-                output_box.insert("end", f"\nPopulation: {population:,.0f}\n")
-                output_box.insert("end", f"Total rate (%): {(prediction/population*100):.2f}\n")
-            except ValueError:
-                pass
+        # Calculate change from last known
+        try:
+            X_last, last_year = connection.get_last_known_data()
+            last_population = X_last['Population_lagged'].iloc[0]
+            change = prediction - last_population
+            change_percent = (change / last_population) * 100
+            
+            output_box.insert("end", f"\nChange from {last_year}:\n")
+            output_box.insert("end", f"  • Absolute: {change:+,.0f}\n")
+            output_box.insert("end", f"  • Percentage: {change_percent:+.2f}%\n")
+        except:
+            pass
         
-    except ValueError:
-        output_box.insert("end", "ERROR: Please enter a valid year!\n")
+    except ValueError as e:
+        output_box.insert("end", f"ERROR: {str(e)}\n")
     except Exception as e:
         output_box.insert("end", f"ERROR during prediction: {str(e)}\n")
-        output_box.insert("end", "Please check your input data.\n")
+        output_box.insert("end", "Please check:\n")
+        output_box.insert("end", "  • Model file exists: Models/population.joblib\n")
+        output_box.insert("end", "  • Data file exists: data/New_csv.csv\n")
 
+# Predict Button
 predict_button = ctk.CTkButton(
     app,
-    text="Predict Total (Recursive Model)",
-    command=predict_crime,
-    width=200,
-    height=35,
-    font=("Arial", 13, "bold")
+    text="Predict Population for 2025",
+    command=predict_population,
+    width=250,
+    height=40,
+    font=("Arial", 14, "bold")
 )
-predict_button.pack(pady=10)
+predict_button.pack(pady=15)
 
 # Output Frame
 output_frame = ctk.CTkFrame(app)
-output_frame.pack(padx=20, pady=(5, 5), fill="both", expand=True)
+output_frame.pack(padx=20, pady=(10, 10), fill="both", expand=True)
 
 output_label = ctk.CTkLabel(
     output_frame,
     text="Prediction Results:",
     font=("Arial", 13, "bold")
 )
-output_label.pack(pady=(8, 5))
+output_label.pack(pady=(10, 5))
 
-# Create a textbox (the output box)
-output_box = ctk.CTkTextbox(output_frame, width=500, height=150)
-output_box.pack(padx=10, pady=(0, 8), fill="both", expand=True)
+# Create output textbox
+output_box = ctk.CTkTextbox(output_frame, width=550, height=200)
+output_box.pack(padx=10, pady=(0, 10), fill="both", expand=True)
 
-
-
-#--------------------------------------------------------------------------------------
-
-
+# Initial message
+output_box.insert("1.0", "Click 'Predict Population for 2025' to see results.\n\n")
+output_box.insert("end", "The model will use the last known data from New_csv.csv\n")
+output_box.insert("end", "to predict the population for year 2025.\n")
 
 # Function to clear output
 def clear_output():
@@ -210,7 +186,7 @@ def exit_app():
     app.quit()
     app.destroy()
 
-# Red exit button in bottom right corner
+# Exit button
 exit_button = ctk.CTkButton(
     app,
     text="Exit",
@@ -222,4 +198,7 @@ exit_button = ctk.CTkButton(
 )
 exit_button.place(relx=0.98, rely=0.99, anchor="se")
 
-app.mainloop()
+# Run the app
+if __name__ == "__main__":
+    app.mainloop()
+
